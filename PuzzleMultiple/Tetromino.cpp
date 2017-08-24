@@ -37,7 +37,7 @@ void Tetromino::Move(int x, int y) {
 }
 void Tetromino::SetPosition(Vector2f pos)
 {
-	this->position = Vector2i(pos.x,pos.y);
+	this->position = Vector2i(pos.x, pos.y);
 	UpdatePos();
 }
 void Tetromino::SetPosition(Vector2i pos)
@@ -62,14 +62,57 @@ void Tetromino::RotateReverse() {
 		childrenPos[i] = vector<int>({ -childrenPos[i][1],childrenPos[i][0] });
 	UpdatePos();
 }
+void Tetromino::ClearParentInfo() {
 
-void Tetromino::Draw(RenderWindow* window,bool active)
+	for (int i = 0; i < 4; i++) {
+		auto v = boxes[i].getPosition();
+		auto gridpos = _parent->GetCoords(v);
+		if (gridpos[0] >= 0 && gridpos[1] >= 0) {
+			_parent->UpdateTemp(gridpos[0], gridpos[1], -1);
+		}
+	}
+}
+bool Tetromino::UpdateParentInfo(int player) {
+
+	for (int i = 0; i < 4; i++) {
+		auto v = boxes[i].getPosition();
+		auto gridpos = _parent->GetCoords(v);
+		if (gridpos[0] >= 0 && gridpos[1] >= 0)
+
+			if (_parent->GridTempValue(gridpos[0], gridpos[1]) > 0 && _parent->GridTempValue(gridpos[0], gridpos[1]) != player)
+				return false;
+	}
+	for (int i = 0; i < 4; i++) {
+		auto v = boxes[i].getPosition();
+		auto gridpos = _parent->GetCoords(v);
+		if (gridpos[0] >= 0 && gridpos[1] >= 0)
+			_parent->UpdateTemp(gridpos[0], gridpos[1], player);
+	}
+	return true;
+}
+bool Tetromino::IsValidTempPos(int player) {
+	for (int i = 0; i < 4; i++)
+	{
+		auto v = boxes[i].getPosition();
+		if (!_parent->InsideBorder(v))
+			return false;
+		auto gridpos = _parent->GetCoords(v);
+		if (gridpos[0] < 0)
+			return false;
+		if (gridpos[1] < 0)
+			return true;
+		if (_parent->GridTempValue(gridpos[0], gridpos[1]) > 0 && _parent->GridTempValue(gridpos[0], gridpos[1]) != player)
+			return false;
+	}
+	return true;
+}
+void Tetromino::Draw(RenderWindow* window, bool active)
 {
 	for (int i = 0; i < 4; i++) {
 		if (active)
 			boxes[i].setColor(Color::White);
 		else
-			boxes[i].setColor(Color(255,255,255,32)); //Used for mirrors and predictions
+			boxes[i].setColor(Color(255, 255, 255, 32)); //Used for mirrors and predictions
 
 		window->draw(boxes[i]);
 	}
@@ -96,7 +139,7 @@ bool Tetromino::IsValidGridPosFinal() {
 		if (gridpos[0] < 0)
 			return false;
 		if (gridpos[1] < 0)
-			return i>0?true:false;
+			return i > 0 ? true : false;
 		if (_parent->GridValue(gridpos[0], gridpos[1]) >= 0)
 			return false;
 	}
@@ -119,7 +162,14 @@ bool Tetromino::IsValidGridPos() {
 	}
 	return true;
 }
-
+int Tetromino::GetValue() {
+	int sum = 0;
+	for (int i = 0; i < 4; i++)
+	{
+		sum += boxes[i].getPosition().y;
+	}
+	return sum / 4;
+}
 int Tetromino::UpdateGrid()
 {
 	if (_parent->colorIndex == colorValue)//Pice placed in correct column
@@ -143,16 +193,16 @@ int Tetromino::UpdateGrid()
 		};
 		bool found = false;
 		for (int j = 0; j < 2 && !found; j++)//Search to place block on ground
-				for (i = 0; i < 4 && !found; i++) {
-					auto v = boxes[i].getPosition();
-					v.x += checkPositions[j].x*size;
-					v.y += checkPositions[j].y*size;
-					if (!_parent->InsideBorder(v))
-					{
-						found = true;
-						break;
-					}
+			for (i = 0; i < 4 && !found; i++) {
+				auto v = boxes[i].getPosition();
+				v.x += checkPositions[j].x*size;
+				v.y += checkPositions[j].y*size;
+				if (!_parent->InsideBorder(v))
+				{
+					found = true;
+					break;
 				}
+			}
 		if (!found) {
 			for (int j = 0; j < checkPositions.size() && !found; j++)//Search to place block inline
 				for (i = 0; i < 4 && !found; i++) {

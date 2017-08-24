@@ -1,7 +1,6 @@
 #pragma once
 #include <SFML\Graphics.hpp>
 #include <vector>
-#include <list>
 
 using namespace sf;
 using namespace std;
@@ -14,15 +13,19 @@ public:
 	~Grid();
 	Vector2f GetVector(int x, int y);
 	void Draw(RenderWindow * window, bool active);
+	void Clear();
 	bool InsideBorder(Vector2f pos);
 	void Flip();
 	void RemoveBlock(int x0, int y0);
 	int RemovePenalty(int x0, int y0);
 	void RandomPenalty(int color);
 	int DeleteFullRows();
+	int Evaluate();
 	vector<int> GetCoords(Vector2f pos);
 	vector<int> GetCoords(Vector2i pos);
 	void UpdateGrid(int x0, int y0, int val);
+	void UpdateTemp(int x0, int y0, int val);
+	int GridTempValue(int x0, int y0);
 	int GridValue(int x0, int y0);
 	int colorIndex = 0;
 private:
@@ -34,7 +37,8 @@ private:
 	vector<Sprite>::iterator pFrame;
 	vector<Sprite> colors;
 	vector<vector<int>> blocks;
-	list<int> penaltiesLines;
+	vector<vector<int>> tempBlocks;
+
 	void FillGrid(int x0, int y0, int x1, int y1);
 	void DeleteRow(int y);
 	void DecreaseRow(int y);

@@ -11,6 +11,8 @@ Core::~Core()
 
 int Core::Init(RenderWindow * renderWindow, int gridW, int gridH, int blockS)
 {
+	free(currentParents);
+	clock = Clock();
 	window = renderWindow;
 
 	blockSize = blockS;
@@ -25,7 +27,7 @@ int Core::Init(RenderWindow * renderWindow, int gridW, int gridH, int blockS)
 	/*Reset scoreboard*/
 	score = 0;
 	pendingRemovals = 0;
-	currentParent = 1;
+	currentParents = new int[2]{ 0, 2 };
 
 	//Set colorblocks
 	colors = {
@@ -52,26 +54,26 @@ int Core::Init(RenderWindow * renderWindow, int gridW, int gridH, int blockS)
 		Text("",textFont,26)//Keys
 	};
 
-	displayTexts[0].setString("Score: "+to_string(score)+"\n\t\t\t\tNext Piece");
+	displayTexts[0].setString("Score: " + to_string(score) + "\n\t\t\t\tNext Piece");
 	displayTexts[0].setPosition(blockSize*gridWidth * gridGroup.size() + 10, 10);
 	displayTexts[0].setFillColor(Color::White);
 
 	displayTexts[1].setString("Instructions:\nPlace each piece in its respective column.\nPenalties will be applied, if a piece\nis misplaced.\n(Blocks in other columns will be spawn).\nYou can remove penalties by completing lines\nand clicking over penalty.");
 	displayTexts[1].setPosition(blockSize*gridWidth * gridGroup.size() + 40, 210);
-	displayTexts[1].setFillColor(Color(200,200,200));
+	displayTexts[1].setFillColor(Color(200, 200, 200));
 
 	displayTexts[2].setString("\tRotate\n\tMove Left/Right\n\tDrop Faster\n\tSwitch column\n\n\tRemove penalty\n\nPress Escape to Quit");
 	displayTexts[2].setPosition(blockSize*gridWidth * gridGroup.size() + 110, 440);
 	displayTexts[2].setFillColor(Color(200, 200, 200));
-	
-	displayTexts[3].setFillColor(Color(80, 200, 255, 200));
-	displayTexts[3].setOrigin(11*13,13);
-	displayTexts[3].setPosition(blockSize*gridWidth * (gridGroup.size()+0.5f), 150);
 
-	gameOverText = Text("",textFont,36);
+	displayTexts[3].setFillColor(Color(80, 200, 255, 200));
+	displayTexts[3].setOrigin(11 * 13, 13);
+	displayTexts[3].setPosition(blockSize*gridWidth * (gridGroup.size() + 0.5f), 150);
+
+	gameOverText = Text("", textFont, 36);
 	gameOverText.setFillColor(Color::White);
 	gameOverText.setPosition(blockSize*gridWidth *(gridGroup.size() / 2.f), 300);
-	
+
 
 	displayTexts[3].setString("Remove penalty available");
 
@@ -94,30 +96,175 @@ int Core::Init(RenderWindow * renderWindow, int gridW, int gridH, int blockS)
 	keySprites[3].setPosition(blockSize*gridWidth * gridGroup.size() + 60, 510);
 	keySprites[4].setPosition(blockSize*gridWidth * gridGroup.size() + 80, 550);
 	keySprites[5].setPosition(blockSize*gridWidth * gridGroup.size() + 40, 550);
-	keySprites[6].setPosition(blockSize*gridWidth * gridGroup.size() + 60 ,590);
+	keySprites[6].setPosition(blockSize*gridWidth * gridGroup.size() + 60, 590);
 
 	pieceType = (Tetromino::TetrominoType)(rand() % 7);
 	nextColor = rand() % gridGroup.size();
-	NewTetromino();
+	NewTetromino(true);
+	NewTetromino(false);
 	return 0;
 }
-void Core::Update() 
+
+bool CompreStates(vector<int> i, vector<int> j) { return (i[2] > j[2]); }
+
+vector<int> Core::NextStates() {
+	vector<vector<int>> rightRotation;
+
+	for (int i = 0; i < 4; i++)
+	{
+		for (int r = 0; r < i; r++)
+		{
+			playerTwoPiece.Rotate();
+		}
+		for (int x = 0; x < (gridWidth) / 2; x++)
+		{
+			Tetromino temp = playerTwoPiece;
+			int xres = 0;
+			
+			for (int x0 = 0; x0 <= x && temp.IsValidGridPos(); x0++)
+			{
+				temp.ClearParentInfo();
+				xres = x0;
+				temp.Move(-blockSize, 0);
+			}
+			temp.Move(blockSize, 0);
+			while (temp.IsValidGridPos()) {
+				temp.Move(0, blockSize);
+			}
+			temp.Move(0, -blockSize);
+			rightRotation.push_back(vector<int>({ i,-xres,temp.GetValue() }));
+		}
+		for (int x = 0; x < (gridWidth - 2) / 2; x++)
+		{
+			Tetromino temp = playerTwoPiece;
+
+			int xres = 0;
+			for (int x0 = 0; x0 <= x && temp.IsValidGridPos(); x0++)
+			{
+				xres = x0;
+				temp.Move(blockSize, 0);
+			}
+			temp.Move(-blockSize, 0);
+			while (temp.IsValidGridPos()) {
+				temp.Move(0, blockSize);
+			}
+			temp.Move(0, -blockSize);
+			rightRotation.push_back(vector<int>({ i,xres,temp.GetValue() }));
+		}
+		for (int r = 0; r < i; r++)
+		{
+			playerTwoPiece.RotateReverse();
+		}
+	}
+	sort(rightRotation.begin(), rightRotation.end(), CompreStates);
+	cout << "Next staes" << endl;
+	for (int i = 0; i < rightRotation.size(); i++)
+	{
+		cout << rightRotation[i][0] << "\t" << rightRotation[i][1] << "\t" << rightRotation[i][2] << endl;
+	}
+	cout << endl << endl;
+	return rightRotation.size() > 0 ? rightRotation[0] : vector<int>({ 0,0,0 });
+}
+bool AIready = false;
+bool Core::Update()
 {
+	playerOnePiece.ClearParentInfo();
+	playerOnePiece.UpdateParentInfo(1);
+
+	//playerTwoPiece.ClearParentInfo();
+	//playerTwoPiece.UpdateParentInfo(2);
+
 	//Place cursor over mouse grid position
 	selector.setPosition(gridGroup[mouseGrid].GetVector(mouseCoords.x, mouseCoords.y));
 
 	//simple animation
 	displayTexts[3].setRotation(30 * cos(angle += .05));
-	displayTexts[3].setScale(1+.2*cos(angle*2), 1 + .2*cos(angle * 2));
-}
-bool Core::UpdatePhisycs()
-{
-	currentPiece.Move(0, blockSize);
-	if (!currentPiece.IsValidGridPos())
+	displayTexts[3].setScale(1 + .2*cos(angle * 2), 1 + .2*cos(angle * 2));
+
+	//update bot
+	if (botPlaying && !AIready)
 	{
-		currentPiece.Move(0, -blockSize);
-		int remaining = currentPiece.UpdateGrid();
-		int increment = currentPiece.GetParent()->DeleteFullRows();
+		//Select right column
+		int tries = 2;
+		while (playerTwoPiece.colorValue != gridGroup[currentParents[1]].colorIndex && tries > 0) {
+			NextParent(false);
+			tries--;
+		}
+		tries = 2;
+		while (playerTwoPiece.colorValue != gridGroup[currentParents[1]].colorIndex && tries > 0) {
+			PrevParent(false);
+			tries--;
+		}
+		auto result = NextStates();
+		for (int r = 0; r < result[0]; r++)
+			playerTwoPiece.Rotate();
+		for (int x = 0; x < abs(result[1]); x++)
+			playerTwoPiece.Move(blockSize*(result[1] > 0 ? 1 : -1), 0);
+		AIready = true;
+	}
+
+	if (clock.getElapsedTime().asMilliseconds() >= 300 && botPlaying) {
+		clock.restart();
+		return UpdatePhisycs(false);
+	}
+	return true;
+}
+
+void Core::SwitchPlayer2() {
+	botPlaying = !botPlaying;
+	displayTexts[0].setString("Score: " + to_string(score) + "\n\t\t\t\tNext Piece");
+}
+
+bool Core::UpdateInput(Keyboard::Key code)
+{
+	//Input
+	if (code == Keyboard::W)
+		RotatePiece(true);
+	if (code == Keyboard::Numpad8 && !botPlaying)
+		RotatePiece(false);
+	if (code == Keyboard::A)
+		Move(-blockSize, true);
+	if (code == Keyboard::Numpad4 && !botPlaying)
+		Move(-blockSize, false);
+	if (code == Keyboard::D)
+		Move(blockSize, true);
+	if (code == Keyboard::Numpad6 && !botPlaying)
+		Move(blockSize, false);
+
+
+
+	if (code == Keyboard::E)
+		NextParent(true);
+	if (code == Keyboard::Numpad3 && !botPlaying)
+		NextParent(false);
+	if (code == Keyboard::Q)
+		PrevParent(true);
+	if (code == Keyboard::Numpad1 && !botPlaying)
+		PrevParent(false);
+
+	if (code == Keyboard::S)
+		return UpdatePhisycs(true);
+	if (code == Keyboard::Numpad2 && !botPlaying)
+		return UpdatePhisycs(false);
+	return true;
+}
+
+bool Core::UpdatePhisycs(const bool playerOne = true)//Gravity
+{
+	auto piece = playerOne ? &playerOnePiece : &playerTwoPiece;
+	piece->ClearParentInfo();
+	piece->Move(0, blockSize);
+	if (!piece->UpdateParentInfo(playerOne ? 1 : 2) && piece->IsValidGridPos()) {
+		piece->Move(0, -blockSize);
+	}
+	else
+	if (!piece->IsValidGridPos())
+	{
+		piece->ClearParentInfo();
+		AIready = false;
+		piece->Move(0, -blockSize);
+		int remaining = piece->UpdateGrid();
+		int increment = piece->GetParent()->DeleteFullRows();
 
 		score += increment;
 		pendingRemovals += increment;
@@ -127,22 +274,47 @@ bool Core::UpdatePhisycs()
 		{
 			for (int i = 0; i < gridGroup.size(); i++)
 			{
-				if (&gridGroup[i] != currentPiece.GetParent())
+				if (&gridGroup[i] != piece->GetParent())
 					gridGroup[i].RandomPenalty(remaining);
 			}
 		}
-		NewTetromino();
-		if (!currentPiece.IsValidGridPosFinal()) //No new blocks gameover
+		NewTetromino(playerOne);
+		if (!piece->IsValidGridPosFinal()) //No new blocks gameover
 			return false;
-		return true;
 	}
+	return true;
 }
-void Core::FlipBoard() {
+void Core::FlipBoard() {//FlipBoard
 
 	for (int i = 0; i < gridGroup.size(); i++)
 	{
 		gridGroup[i].Flip();
 	}
+}
+
+void Core::DrawMirrors(bool playerOne) {
+	auto piece = playerOne ? &playerOnePiece : &playerTwoPiece;
+	auto piecePos = piece->GetPosition();
+	auto pieceCoords = piece->GetParent()->GetCoords(piecePos);
+	for (int i = 0; i < gridGroup.size(); i++)
+	{
+		if (&gridGroup[i] != piece->GetParent())
+		{
+			auto vectorVal = gridGroup[i].GetVector(pieceCoords[0], pieceCoords[1]);
+			vectorVal.x += blockSize / 2;
+			vectorVal.y += blockSize / 2;
+			piece->SetPosition(vectorVal);
+			piece->Draw(window, false);
+		}
+	}
+	//Calculate prediction
+	piece->SetPosition(piecePos);
+	while (piece->IsValidGridPos())
+		piece->Move(0, blockSize);
+	piece->Move(0, -blockSize);
+	piece->Draw(window, false);
+
+	piece->SetPosition(piecePos);
 }
 void Core::Draw()
 {
@@ -150,41 +322,24 @@ void Core::Draw()
 
 	//Use current piece to draw mirrows and prediction
 	//Draw in current parent
-	currentPiece.Draw(window);
+	playerOnePiece.Draw(window);
 	//Calculate mirrors
-	auto piecePos = currentPiece.GetPosition();
-	auto pieceCoords = currentPiece.GetParent()->GetCoords(piecePos);
-	for (int i = 0; i < gridGroup.size(); i++)
-	{
-		if (&gridGroup[i] != currentPiece.GetParent())
-		{
-			auto vectorVal = gridGroup[i].GetVector(pieceCoords[0], pieceCoords[1]);
-			vectorVal.x += blockSize / 2;
-			vectorVal.y += blockSize / 2;
-			currentPiece.SetPosition(vectorVal);
-			currentPiece.Draw(window, false);
-		}
-	}
-	//Calculate prediction
-	currentPiece.SetPosition(piecePos);
-	while (currentPiece.IsValidGridPos())
-		currentPiece.Move(0, blockSize);
-	currentPiece.Move(0, -blockSize);
-	currentPiece.Draw(window, false);
 
-	//Reset piece
-	currentPiece.SetPosition(piecePos);
+	DrawMirrors(true);
+	playerTwoPiece.Draw(window);
+	if (!botPlaying)
+		DrawMirrors(false);
 
 	//DrawFrame
 	for (int i = 0; i < gridGroup.size(); i++)
 	{
-		gridGroup[i].Draw(window, currentPiece.GetParent() == &gridGroup[i]);
+		gridGroup[i].Draw(window, playerOnePiece.GetParent() == &gridGroup[i] || playerTwoPiece.GetParent() == &gridGroup[i]);
 	}
 
 	nextPiece.Draw(window);
 
 	//Dont display remove penalty unless we have chance
-	for (int i = 0; i < displayTexts.size() - (pendingRemovals>0 ? 0 : 1); i++)
+	for (int i = 0; i < displayTexts.size() - (pendingRemovals > 0 ? 0 : 1); i++)
 	{
 		window->draw(displayTexts[i]);
 	}
@@ -197,8 +352,8 @@ void Core::Draw()
 
 }
 void Core::ShowGameOver() {
-	
-	gameOverText.setString("\t\tGame Over\nFinal Score: "+to_string(score)+"\nPress R to Restart");
+
+	gameOverText.setString("\t\tGame Over\nFinal Score: " + to_string(score) + "\nPress R to Restart");
 	window->draw(gameOverText);
 }
 void Core::CalculateMousePosition()//Calculate mouse grid position
@@ -217,7 +372,7 @@ void Core::CalculateMousePosition()//Calculate mouse grid position
 
 }
 
-void Core::ProcessRemoval()
+void Core::ProcessRemoval()//Remove Block
 {
 	if (pendingRemovals > 0)
 	{
@@ -231,36 +386,50 @@ void Core::ProcessRemoval()
 	gridGroup[mouseGrid].RemoveBlock(mouseCoords.x, mouseCoords.y);
 }
 
-void Core::RotatePiece()
+void Core::RotatePiece(bool isPlayerOne)
 {
-	currentPiece.Rotate();
-	if (!currentPiece.IsValidGridPos())
-		currentPiece.RotateReverse();
+	if (isPlayerOne)
+		AIready = false;
+	auto piece = isPlayerOne ? &playerOnePiece : &playerTwoPiece;
+	piece->ClearParentInfo();
+	piece->Rotate();
+	if (!piece->UpdateParentInfo(isPlayerOne ? 1 : 2) || !piece->IsValidGridPos())
+		piece->RotateReverse();
 }
 
-void Core::Move(int value)
+void Core::Move(int value, bool isPlayerOne)
 {
-	currentPiece.Move(value, 0);
-	if (!currentPiece.IsValidGridPos())
-		currentPiece.Move(-value, 0);
+	if (isPlayerOne)
+		AIready = false;
+	auto piece = isPlayerOne ? &playerOnePiece : &playerTwoPiece;
+	piece->ClearParentInfo();
+	piece->Move(value, 0);
+	if (!piece->IsValidGridPos() || !piece->UpdateParentInfo(isPlayerOne ? 1 : 2))
+		piece->Move(-value, 0);
+
+
 }
 
-void Core::NextParent()
+void Core::NextParent(bool playerOne)
 {
-	int prevParent=currentParent;
-	currentParent++;
-	if (currentParent >= gridGroup.size())
-		currentParent = gridGroup.size() - 1;
-	UpdateParent(prevParent);
+	if (playerOne)
+		AIready = false;
+	int prevParent = currentParents[playerOne ? 0 : 1];
+	currentParents[playerOne ? 0 : 1]++;
+	if (currentParents[playerOne ? 0 : 1] >= gridGroup.size())
+		currentParents[playerOne ? 0 : 1] = gridGroup.size() - 1;
+	UpdateParent(prevParent, playerOne);
 }
 
-void Core::PrevParent()
+void Core::PrevParent(bool playerOne)
 {
-	int prevParent = currentParent;
-	currentParent--;
-	if (currentParent < 0)
-		currentParent = 0;
-	UpdateParent(prevParent);
+	if (playerOne)
+		AIready = false;
+	int prevParent = currentParents[playerOne ? 0 : 1];
+	currentParents[playerOne ? 0 : 1]--;
+	if (currentParents[playerOne ? 0 : 1] < 0)
+		currentParents[playerOne ? 0 : 1] = 0;
+	UpdateParent(prevParent, playerOne);
 }
 
 int Core::LoadResources()
@@ -277,30 +446,37 @@ int Core::LoadResources()
 
 }
 
-void Core::NewTetromino()
+void Core::NewTetromino(bool isPlayerOne)
 {
-	currentPiece={ &blocksTexture, colors[nextColor],nextColor, Vector2i((gridWidth % 2 == 0 ? -blockSize / 2 : 0) + gridWidth *(currentParent + 0.5f) * blockSize, 48), pieceType };
-	currentPiece.SetParent(&gridGroup[currentParent]);
+	if (isPlayerOne) {
+		playerOnePiece = { &blocksTexture, colors[nextColor],nextColor, Vector2i((gridWidth % 2 == 0 ? -blockSize / 2 : 0) + gridWidth *(currentParents[isPlayerOne ? 0 : 1] + 0.5f) * blockSize, 48), pieceType };
+		playerOnePiece.SetParent(&gridGroup[currentParents[isPlayerOne ? 0 : 1]]);
+	}
+	else {
+		playerTwoPiece = { &blocksTexture, colors[nextColor],nextColor, Vector2i((gridWidth % 2 == 0 ? -blockSize / 2 : 0) + gridWidth *(currentParents[isPlayerOne ? 0 : 1] + 0.5f) * blockSize, 48), pieceType };
+		playerTwoPiece.SetParent(&gridGroup[currentParents[isPlayerOne ? 0 : 1]]);
+	}
 	pieceType = (Tetromino::TetrominoType)(rand() % 7);
 	nextColor = rand() % gridGroup.size();
-	nextPiece = { &blocksTexture, colors[nextColor],nextColor, Vector2i(blockSize*gridWidth * (gridGroup.size()+0.5f),190), pieceType };
+	nextPiece = { &blocksTexture, colors[nextColor],nextColor, Vector2i(blockSize*gridWidth * (gridGroup.size() + 0.5f),190), pieceType };
 }
 
-void Core::UpdateParent(int prevParent)//Try to change parent if position is not valid return to prevParent
+void Core::UpdateParent(int prevParent, bool isPlayerOne)//Try to change parent if position is not valid return to prevParent
 {
-	auto currentPosition = currentPiece.GetPosition();
-	auto pieceCoords = gridGroup[prevParent].GetCoords(currentPiece.GetPosition());
-	auto vectorVal = gridGroup[currentParent].GetVector(pieceCoords[0], pieceCoords[1]);
+	auto piece = isPlayerOne ? &playerOnePiece : &playerTwoPiece;
+	auto currentPosition = piece->GetPosition();
+	auto pieceCoords = gridGroup[prevParent].GetCoords(piece->GetPosition());
+	auto vectorVal = gridGroup[currentParents[isPlayerOne ? 0 : 1]].GetVector(pieceCoords[0], pieceCoords[1]);
 	vectorVal.x += blockSize / 2;
 	vectorVal.y += blockSize / 2;
-
-	currentPiece.SetParent(&gridGroup[currentParent]);
-	currentPiece.SetPosition(vectorVal);
-
-	if (!currentPiece.IsValidGridPos())
+	piece->ClearParentInfo();
+	piece->SetParent(&gridGroup[currentParents[isPlayerOne ? 0 : 1]]);
+	piece->SetPosition(vectorVal);
+	if (!piece->IsValidGridPos() || !piece->UpdateParentInfo(isPlayerOne ? 1 : 2))
 	{
-		currentParent = prevParent;
-		currentPiece.SetParent(&gridGroup[currentParent]);
-		currentPiece.SetPosition(currentPosition);
+		currentParents[isPlayerOne ? 0 : 1] = prevParent;
+		piece->SetParent(&gridGroup[currentParents[isPlayerOne ? 0 : 1]]);
+		piece->SetPosition(currentPosition);
 	}
+
 }

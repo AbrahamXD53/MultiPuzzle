@@ -1,6 +1,9 @@
 #include <SFML/Graphics.hpp>
 #include "Core.h"
+#include <iostream>
+#include <SFML/Window/Event.hpp>
 
+using namespace std;
 using namespace sf;
 
 const int GridWidth = 12;
@@ -10,7 +13,7 @@ const int BlockSize = 32;
 
 int main()
 {
-	RenderWindow window(sf::VideoMode(1400, 720), "Puzzle", Style::Close);
+	RenderWindow window(sf::VideoMode(1280, 720), "Puzzle", Style::Close);
 	window.setFramerateLimit(60);
 
 	Core gameCore;
@@ -56,21 +59,13 @@ int main()
 				if (gameOver)
 					break;
 
-				if (Keyboard::isKeyPressed(Keyboard::W))
-					gameCore.RotatePiece();
-				if (Keyboard::isKeyPressed(Keyboard::A))
-					gameCore.Move(-BlockSize);
-				if (Keyboard::isKeyPressed(Keyboard::D))
-					gameCore.Move(BlockSize);
-				if (Keyboard::isKeyPressed(Keyboard::S))
-					if (!gameCore.UpdatePhisycs())
-						gameOver = true;
+				if (Keyboard::isKeyPressed(Keyboard::Numpad0))
+					gameCore.SwitchPlayer2();
 				if (Keyboard::isKeyPressed(Keyboard::L))
 					gameCore.FlipBoard();
-				if (Keyboard::isKeyPressed(Keyboard::E))
-					gameCore.NextParent();
-				if (Keyboard::isKeyPressed(Keyboard::Q))
-					gameCore.PrevParent();
+				
+				if (!gameCore.UpdateInput(event.key.code))
+					gameOver = true;
 			}
 		}
 
@@ -82,11 +77,14 @@ int main()
 			else
 				if (timeTick > 300)
 					timeTick--;
-			if (!gameCore.UpdatePhisycs())
+			if (!gameCore.UpdatePhisycs(true))
 				gameOver=true;
+			if (!gameCore.UpdatePhisycs(false))
+				gameOver = true;
 		}
 		if (!gameOver)
-			gameCore.Update();
+			if (!gameCore.Update())
+				gameOver = true;
 
 		/*Clear n Draw*/
 		window.clear();

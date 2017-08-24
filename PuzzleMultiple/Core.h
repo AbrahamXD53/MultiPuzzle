@@ -4,8 +4,9 @@
 #include <string>
 #include "Tetromino.h"
 #include <cmath>
-#include <list>
-#include <array>
+#include <algorithm>
+#include <iostream>
+
 
 using namespace sf;
 using namespace std;
@@ -16,17 +17,20 @@ public:
 	Core();
 	~Core();
 	int Init(RenderWindow* renderWindow, int gridW,int gridH,int blockS);
-	void Update();
-	bool UpdatePhisycs();
+	bool Update();
+	void SwitchPlayer2();
+	bool UpdateInput(Keyboard::Key code);
+	bool UpdatePhisycs(const bool plyerOne);
 	void FlipBoard();
+	void DrawMirrors(bool playerOne);
 	void Draw();
 	void ShowGameOver();
 	void CalculateMousePosition();
 	void ProcessRemoval();
-	void RotatePiece();
-	void Move(int value);
-	void NextParent();
-	void PrevParent();
+	void RotatePiece(bool isPlayerOne);
+	void Move(int value, bool isPlayerOne);
+	void NextParent(bool playerOne);
+	void PrevParent(bool playerOne);
 private:
 	RenderWindow* window;
 	Texture blocksTexture,
@@ -35,17 +39,20 @@ private:
 	Font textFont;
 	Sprite selector;
 	View view;
-	Tetromino currentPiece,nextPiece;
+	Tetromino playerOnePiece,playerTwoPiece,nextPiece;
 	Vector2i mouseCoords;
 	Tetromino::TetrominoType pieceType;
 	Text gameOverText;
 	
+	int* currentParents = new int[2]{ 0,0 };
+
 	int score, 
 		pendingRemovals,
 		nextColor,
-		currentParent,
 		gridWidth, gridHeight, blockSize,
 		mouseGrid;
+
+	bool botPlaying;
 
 	float angle = 0;
 
@@ -56,9 +63,12 @@ private:
 	vector<Grid> gridGroup;
 	vector<Text> displayTexts;
 	vector<Sprite> keySprites;
+	vector<int> NextStates();
+	Clock clock;
+
 
 	int LoadResources();
-	void NewTetromino();
-	void UpdateParent(int prevParent);
+	void NewTetromino(bool isPlayerOne);
+	void UpdateParent(int prevParent, bool isPlayerOne);
 };
 

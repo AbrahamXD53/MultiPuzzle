@@ -29,24 +29,28 @@ public:
 	void Move(int x, int y);
 	void SetPosition(Vector2f pos);
 	void SetPosition(Vector2i pos);
-	Vector2i GetPosition();
 	void Rotate();
 	void RotateReverse();
+	void ClearParentInfo();
+	bool UpdateParentInfo(int player);
+	bool IsValidTempPos(int player);
 	void Draw(RenderWindow* window);
 	void Draw(RenderWindow * window, bool active);
 	void SetParent(Grid* parent);
 	bool IsValidGridPosFinal();
 	bool IsValidGridPos();
+	int GetValue();
 	int UpdateGrid();
 	bool fixed = false;
+	int colorValue;
 	Grid* GetParent();
+	Vector2i GetPosition();
 private:
 	Grid* _parent;
 	Vector2i position;
 	vector<Sprite> boxes;
 	TetrominoType _shape;
 	int size;
-	int colorValue;
 	vector<vector<int>> childrenPos;
 };
 

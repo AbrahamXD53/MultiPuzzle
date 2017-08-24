@@ -17,6 +17,7 @@ Grid::Grid(Texture* base, IntRect frameBox, vector<IntRect> boxes, int colorInd,
 	for (int i = 0; i < boxes.size(); i++)
 		colors.push_back({ *base,boxes[i] });
 	blocks = vector<vector<int>>(width, vector<int>(height, -1));
+	tempBlocks = vector<vector<int>>(width, vector<int>(height, -1));
 
 	//Set frame
 	pFrame = frame.begin();
@@ -56,7 +57,15 @@ void Grid::Draw(RenderWindow * window, bool active)
 		window->draw(colors[colorIndex]);
 	}
 }
-
+void Grid::Clear() {
+	for (int i = 0; i < width; i++)
+	{
+		for (int j = 0; j < height; j++)
+		{
+			tempBlocks[i][j] = -1;
+		}
+	}
+}
 void Grid::FillGrid(int x0, int y0, int x1, int y1)
 {
 	for (int x = x0; x < x1; x++)
@@ -65,6 +74,15 @@ void Grid::FillGrid(int x0, int y0, int x1, int y1)
 			pFrame->setPosition(position.x + (x*size), position.y + (y*size));
 			pFrame++;
 		}
+}
+void Grid::UpdateTemp(int x0, int y0, int val)
+{
+	tempBlocks[x0][y0] = val;
+}
+int Grid::GridTempValue(int x0, int y0) {
+	if (x0 < 0 || y0 < 0)
+		return -1;
+	return tempBlocks[x0][y0];
 }
 void Grid::UpdateGrid(int x0, int y0, int val)
 {
@@ -169,5 +187,8 @@ int Grid::DeleteFullRows() {
 		}
 	}
 	return result;
+}
+int Grid::Evaluate() {
+	return 0;
 }
 
